@@ -9,7 +9,9 @@ output: html_document
 
 We've 
 
-## Important:- annovar license
+## Introduction to annovar
+
+***Important:- annovar license***
 
 `annovar` is free for academice use. However, you need to supply a valid academic email address in order to download the software. If you wish to use `annovar` after the course. You will have to fill out the form on the [annovar](http://annovar.openbioinformatics.org/en/latest/user-guide/download/) website. 
 
@@ -30,7 +32,7 @@ ls -l ../ref_data/annovar/humandb
 ```
 
 
-## Preparing files forannovar
+## Preparing files for annovar
 
 Some of the commands in `annovar` require a specific input format. Fortunately, they have provided a script that can convert from popular file formats to their format. 
 
@@ -138,31 +140,94 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_gwasCatalog",in
 
 ### Filter-based annotation
 
-Unlike the annotation performed in the previous section, which was based purely on the genomic location, *filter-based* annotation also takes the base-change into account. For example, if we want to see which of our variants are present a in database of known (or common) SNPs we could use the `dbSNP` database. 
+Unlike the annotation performed in the previous section, which was based purely on the genomic location, *filter-based* annotation also takes the base-change into account. 
+
+Several types of database are available
+
+- Frequency of variants in whole-genome data
+
+- Frequency of variants in whole-exome data
+
+- Functional prediction of variants in whole-genome data
+
+- Functional prediction of variants in whole-exome data
+
+- Disease-specific variants
+
+
+For example, if we want to see which of our variants are present a in database of known (or common) SNPs we could use the `dbSNP` database. 
 
 Now we select the `filter` option in annovar with a `dbtype` of `snp129`
 ```{}
 /home/dunnin01/software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
 ```
 
-## Combining multiple annotations and filters
+This time we get two files created; `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped` and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_filtered`. The difference being that the `.._dropped` file contains details of all your variants that ***are*** in the database
 
 ```{}
-annotate_variation.pl -buildver hg19 -downdb genomicSuperDups humandb/ 
+head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped
+```
 
-annotate_variation.pl -buildver hg19 -downdb -webfrom annovar esp6500siv2_all humandb/
+```{r}
+cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped",intern=TRUE),sep="\n")
+```
 
-annotate_variation.pl -buildver hg19 -downdb -webfrom annovar 1000g2014oct humandb/
+Thus, the `.._filtered` file contains all the variants ***not found*** in the database. 
 
-annotate_variation.pl -buildver hg19 -downdb -webfrom annovar snp138 humandb/ 
+We can perform annotation against 1000 genomes variants with the following:-
 
-annotate_variation.pl -buildver hg19 -downdb -webfrom annovar ljb26_all humandb/
+```{}
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+```
 
-table_annovar.pl example/ex1.avinput humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,genomicSuperDups,esp6500siv2_all,1000g2014oct_all,1000g2014oct_afr,1000g2014oct_eas,1000g2014oct_eur,snp138,ljb26_all -operation g,r,r,f,f,f,f,f,f,f -nastring . -csvout
+As before, `..._dropped` and `...filtered` files are produce. Again the `.._dropped` file contains variants that were found in the database. However, rather than printing and ID for the variant, it prints the minor allele frequency that is observed for that variant.
 
+```{}
+head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_10_dropped
+```
+
+```{r echo=FALSE}
+cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_10_dropped",intern=TRUE),sep="\n")
+```
+
+We can also provide a minor allele frequency (maf) threshold. This will mean that only variants with a maf greater than the threshold will be printed to the `..._dropped` file.
+
+```{}
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -maf 0.05
+```
+
+The commands above annotated against variants derived from european indivduals. If we have individuals of a different ethnicity, we probably want to use a different cohort. In this case, we annotate against frequencies observed in asian individuals.
+
+```{}
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_afr -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+```
+
+Clinical variants.....
+
+```{}
+../software/annovar/annotate_variation.pl -filter -dbtype clinvar_20160302 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
 ```
 
 
+## Combining multiple annotations and filters
+
+Up to this point, we have amassed quite a collection of tables of our set of variants annotated / filtered against various databases. A particularly appealing feature of `annovar` is that we can define protocols to combine multiple filters and collect the results in the same table. 
+
+The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You many need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
+
+```{}
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,clinvar_20160302 -operation g,r,r,f,f,f,f -nastring . -csvout
+```
+
+The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the )
+
+```{}
+head myanno.hg19_multianno.csv
+```
+
+```{r, echo=FALSE,comment=NA}
+cat(system("head myanno.hg19_multianno.csv",intern=TRUE),sep="\n")
+```
 
 
 
