@@ -209,6 +209,9 @@ Clinical variants.....
 ```
 
 
+### LJB* (dbNSFP) non-synonymous variants annotation
+
+
 ## Combining multiple annotations and filters
 
 Up to this point, we have amassed quite a collection of tables of our set of variants annotated / filtered against various databases. A particularly appealing feature of `annovar` is that we can define protocols to combine multiple filters and collect the results in the same table. 
@@ -216,21 +219,187 @@ Up to this point, we have amassed quite a collection of tables of our set of var
 The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You many need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,clinvar_20160302 -operation g,r,r,f,f,f,f -nastring . -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,clinvar_20160302,dbnsfp30a -operation g,r,r,f,f,f,f,f -nastring NA -csvout
 ```
 
-The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the )
+The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
 
-```{}
-head myanno.hg19_multianno.csv
+
+
+# Using R to interrogate and filter an annotation table
+
+## Introducing dplyr
+
+`dplyr` is a very powerful package for manipulating data in tables. The [cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) is highly recommended and summarises all the functions within the package. We won't have time to cover everything here today.
+
+
+```{r message=FALSE}
+library(dplyr)
 ```
 
-```{r, echo=FALSE,comment=NA}
-cat(system("head myanno.hg19_multianno.csv",intern=TRUE),sep="\n")
+the `tbl_df` function is used to convert the standard R data.frame into a special `dplyr` one that has a nicer standard display.
+
+```{r}
+anno <- read.csv("myanno.hg19_multianno.csv")
+anno <- tbl_df(anno)
+anno
+```
+
+### select
+
+`select` is the first of the `dplyr` verbs that can be used to pick certain columns from the table
+
+```{r}
+select(anno, Func.refGene)
+```
+
+Mutiple columns can be selected by separating their names with a comma
+
+```{r}
+select(anno, Func.refGene,ExonicFunc.refGene)
+```
+
+We can select a range of columns with a `:`
+
+```{r}
+select(anno, cytoBand:X1000g2014oct_afr)
+```
+
+Or suppress columns with a `-` in front of their name
+
+
+```{r}
+select(anno, -End)
+```
+
+Combinations of the above are possible
+
+```{r}
+select(anno, cytoBand:X1000g2014oct_afr,-snp129)
+```
+
+```{r}
+select(anno, starts_with("CLN"))
 ```
 
 
 
+*******
+Exercise
 
-## Annotating using snpEFF
+- Select the columns `Func.refGene` to `AAChange.refGene` 
+    + you could try the convenience function `contains` to do this, or using the `:` notation
+- Now remove the column `GeneDetail.refGene`
+- Append the chromosome start and end position columns
+
+```{r echo=FALSE}
+select(anno, Chr:End, contains("refGene"),-GeneDetail.refGene)
+```
+
+******
+
+We should note at this point, that we have not actually changed the data frame at any point; just created different views of the data. 
+
+```{r}
+anno
+```
+
+
+### filter
+
+A particularly useful operation for us is going to be `filter`. The syntax is consistent with `select` and uses the usual selection techniques in R such as `==` 
+
+```{r}
+filter(anno, Chr ==1)
+```
+
+```{r}
+filter(anno, X1000g2014oct_eur < 0.05)
+```
+
+
+Again, multiple conditions can be added
+
+```{r}
+filter(anno, Chr==1, Func.refGene == "exonic")
+```
+
+```{r}
+filter(anno, Func.refGene != "intronic", Func.refGene != "exonic")
+```
+
+A useful shortcut function is `count`, which will give a table of how many values are found in a particular column
+
+```{r}
+count(anno, Func.refGene)
+```
+
+
+*******
+Exercise
+
+- Find all variants that are in TP53 and exonic
+- Find all variants that are in TP53, exonic and less than 0.05 maf in european and african 1000 genomes individuals
+- Find which variants are present in the GWAS catalog
+
+*******
+
+### Combining commands with "pipes"
+
+piping is a familiar concept in unix where the output of one command is used as input to the following line. The `dplyr` package allows such operations to be performed in R via use of the ` %>% ` operation from the `magrittr` package
+
+`dplyr` functions are designed to take a data frame as their first argument, and return a data frame as an output.
+
+Say we want all exonic variants and then display all the columns that relate to the gene-based annotation
+
+```{r}
+filter(anno, Func.refGene=="exonic") %>% 
+  select(contains("refGene"))
+```
+
+
+*******
+Exercise
+
+- Find which variants are present in the GWAS catalog
+- Print the chromsome, start, end, and Gene name for these variants
+
+```{r}
+filter(anno, !is.na(gwasCatalog)) %>% 
+  select(Chr:End, Gene.refGene, gwasCatalog)
+```
+
+*******
+
+### arrange
+
+The `arrange` function can be used to order rows. For example ordering according to 1000 genomes frequency
+
+```{r}
+arrange(anno, X1000g2014oct_eur)
+```
+
+However, we can't actually see the column, so using a `select` statement afterwards seems a good idea
+
+```{r}
+  arrange(anno, X1000g2014oct_eur) %>% 
+  select(Chr:Gene.refGene, X1000g2014oct_eur)
+```
+
+*******
+Exercise
+
+- Which genes have the greatest number of exonic variants?
+
+*******
+
+
+```{r echo=FALSE}
+filter(anno, Func.refGene=="exonic") %>% 
+  select(Chr:Gene.refGene) %>% 
+  count(Gene.refGene) %>% 
+  arrange(desc(n))
+```
+
+
 
