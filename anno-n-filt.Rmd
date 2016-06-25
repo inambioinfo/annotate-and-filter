@@ -219,7 +219,7 @@ Up to this point, we have amassed quite a collection of tables of our set of var
 The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You many need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,clinvar_20160302,dbnsfp30a -operation g,r,r,f,f,f,f,f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,clinvar_20160302 -operation g,r,r,f,f,f,f -nastring NA -csvout
 ```
 
 The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
@@ -401,5 +401,18 @@ filter(anno, Func.refGene=="exonic") %>%
   arrange(desc(n))
 ```
 
+# Using annovar to make prediction
 
+
+```{}
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
+```
+
+
+```{r}
+preds <- read.csv("myanno.pred.hg19_multianno.csv") %>% 
+  tbl_df
+
+preds
+```
 
