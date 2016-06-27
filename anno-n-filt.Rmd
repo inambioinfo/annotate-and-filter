@@ -304,6 +304,9 @@ We should note at this point, that we have not actually changed the data frame a
 anno
 ```
 
+### mutate
+
+Use 0 instead of NA for 1000 genomes frequencies?
 
 ### filter
 
