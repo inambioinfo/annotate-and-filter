@@ -405,7 +405,7 @@ filter(anno, Func.refGene=="exonic") %>%
 
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno.pred -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
 ```
 
 
