@@ -40,7 +40,7 @@ Some of the commands in `annovar` require a specific input format. Fortunately, 
 First we need to convert our `.vcf` file using a script from annovar 'convert2annovar.pl`. 
 
 ```{}
-/home/dunnin01/software/annovar/convert2annovar.pl -format vcf4old HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC143_BL.flagged.muts.avinput
+../software/annovar/convert2annovar.pl -format vcf4old HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
 ```
 
 ```{r}
@@ -56,7 +56,7 @@ Gene-based annotation is the default operation in annovar. The following command
 
 
 ```{}
-/home/dunnin01/software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput /home/dunnin01/software/annovar/humandb
+../software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
 ```
 
 Two files are created:- `HCC1143_vs_HCC1143_BL.flagged.muts.vcf.variant_function` and `HCC1143_vs_HCC1143_BL.flagged.muts.vcf.variant_function`
@@ -108,13 +108,13 @@ cat(system("head ../ref_data/annovar/humandb/hg19_cytoBand.txt",intern=TRUE),sep
 If didn't already have such a file it could be downloaded using:- 
 
 ```{}
-/home/dunnin01/software/annovar/annotate_variation.pl -buildver hg19 -downdb cytoBand ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -buildver hg19 -downdb cytoBand ../ref_data/annovar/humandb/
 ```
 
 To perform the annotation, we need to specify `-regionanno`, to perform region-annotation and set the `dbtype` to `cytoBand`. 
 
 ```{}
-/home/dunnin01/software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
 ``` 
 
 This should result in a file being created with `.cytoBand` added as a file extension to your input file (e.g. `HCC1143_vs_HCC1143_BL.flagged.muts.avinput`). An extra column has been added to indicate which chromosome band each variant is located on. In the event of a variant spanning multiple bands (obviously not in this case), the multiple bands would be listed here.
@@ -130,7 +130,7 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_cytoBand",inter
 In another example, we could annotation against locations that have been reported in previous GWAS studies 
 
 ```{}
-/home/dunnin01/software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
+../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
 ```
 
 ```{}
@@ -159,7 +159,7 @@ For example, if we want to see which of our variants are present a in database o
 
 Now we select the `filter` option in annovar with a `dbtype` of `snp129`
 ```{}
-/home/dunnin01/software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
 ```
 
 This time we get two files created; `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped` and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_filtered`. The difference being that the `.._dropped` file contains details of all your variants that ***are*** in the database
