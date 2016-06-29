@@ -7,13 +7,17 @@ output: html_document
 
 # Outline
 
-We've 
+Imagine that we've called a set of somatic variants from our paired tumour and normal sample.
+
+- Using `annovar` to generate a rich set of annotations for our variants
+- Recent advances in R ("`dplyr`") that allow us to filter and subset our data
+- How we can prioritise our results, and write pipelines for doing so
 
 ## Introduction to annovar
 
 ***Important:- annovar license***
 
-`annovar` is free for academice use. However, you need to supply a valid academic email address in order to download the software. If you wish to use `annovar` after the course. You will have to fill out the form on the [annovar](http://annovar.openbioinformatics.org/en/latest/user-guide/download/) website. 
+`annovar` is free for academic use. However, you need to supply a valid academic email address in order to download the software. If you wish to use `annovar` after the course. You will have to fill out the form on the [annovar](http://annovar.openbioinformatics.org/en/latest/user-guide/download/) website. 
 
 
 `annovar` provides "gene-based", region-based" and "filter-based" annotation. 
@@ -43,7 +47,7 @@ First we need to convert our `.vcf` file using a script from annovar 'convert2an
 ../software/annovar/convert2annovar.pl -format vcf4old HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
 ```
 
-```{r}
+```{r echo=FALSE,comment=NA} 
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput",intern=TRUE),sep="\n")
 ```
 
@@ -59,13 +63,15 @@ Gene-based annotation is the default operation in annovar. The following command
 ../software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
 ```
 
-Two files are created:- `HCC1143_vs_HCC1143_BL.flagged.muts.vcf.variant_function` and `HCC1143_vs_HCC1143_BL.flagged.muts.vcf.variant_function`
+Two files are created:- `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function` 
 
-```{}
+```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function",intern=TRUE),sep="\n")
 ```
 
-```{}
+and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function`
+
+```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function",intern=TRUE),sep="\n")
 ```
 
@@ -74,24 +80,28 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function",in
 Exercise
 
 - Read the variant function results into R
-- How many of each type of variant do we have?
+    + `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function`
+    + How many of each type of variant do we have?
 - Read the exonic variant function file into R
+    + `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function`
     + how many nonsyonymous SNVs do we have?
-    + how many synonumous? etc
+    + how many synonymous? etc
     
 ******
 
-```{r}
+```{r echo=FALSE}
 varfun <- read.delim("HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function",header=FALSE)
 
 ```
 
 
-```{r}
+```{r echo=FALSE}
 exonfun <- read.delim("HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function",header=FALSE)
 ```
 
 ### Region-based annotation
+
+More comprehensive details on the types of region-based filtering that is supported can be found on the [http://annovar.openbioinformatics.org/en/latest/user-guide/region/](annovar website).
 
 The simplest form of region annotation is probably when we want to look at which "cytoband" each variant belongs to. This uses a reference file that contains the coordinates for each cytoband in a given genome version. 
 
@@ -117,13 +127,13 @@ To perform the annotation, we need to specify `-regionanno`, to perform region-a
 ../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
 ``` 
 
-This should result in a file being created with `.cytoBand` added as a file extension to your input file (e.g. `HCC1143_vs_HCC1143_BL.flagged.muts.avinput`). An extra column has been added to indicate which chromosome band each variant is located on. In the event of a variant spanning multiple bands (obviously not in this case), the multiple bands would be listed here.
+This should result in a file being created with `.cytoBand` added as a file extension to your input file (e.g. `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.cytoBand`). An extra column has been added to indicate which chromosome band each variant is located on. In the event of a variant spanning multiple bands (obviously not in this case), the multiple bands would be listed here.
 
 ```{}
 head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.cytoBand
 ```
 
-```{r}
+```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_cytoBand",intern=TRUE),sep="\n")
 ```
 
@@ -133,7 +143,7 @@ In another example, we could annotation against locations that have been reporte
 ../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
 ```
 
-```{}
+```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_gwasCatalog",intern=TRUE),sep="\n")
 ```
 
@@ -168,7 +178,7 @@ This time we get two files created; `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.
 head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped
 ```
 
-```{r}
+```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped",intern=TRUE),sep="\n")
 ```
 
@@ -186,7 +196,7 @@ As before, `..._dropped` and `...filtered` files are produce. Again the `.._drop
 head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_10_dropped
 ```
 
-```{r echo=FALSE}
+```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_10_dropped",intern=TRUE),sep="\n")
 ```
 
@@ -231,6 +241,8 @@ The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` arg
 ## Introducing dplyr
 
 `dplyr` is a very powerful package for manipulating data in tables. The [cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) is highly recommended and summarises all the functions within the package. We won't have time to cover everything here today.
+
+For more information on `dplyr` see our one-day course [Data Manipulation and Visualisation using R](http://bioinformatics-core-shared-training.github.io/r-intermediate/)
 
 
 ```{r message=FALSE}
@@ -306,7 +318,13 @@ anno
 
 ### mutate
 
-Use 0 instead of NA for 1000 genomes frequencies?
+Sometimes we might want to change the data available in the table, either by adding new columns or modifying existing ones. This is supported by the `mutate` function. We have to specify the column name (which doesn't already have to exist) and some new values to put in this column. Any valid R function can be used to create values, provided the number of values to try add is the same as the number of rows.
+
+For example, we might want to change the values stored for `Chr` so they have the usual prefix.
+
+```{r}
+mutate(anno, Chr=paste0("Chr", Chr))
+```
 
 ### filter
 
@@ -386,8 +404,16 @@ However, we can't actually see the column, so using a `select` statement afterwa
 
 ```{r}
   arrange(anno, X1000g2014oct_eur) %>% 
-  select(Chr:Gene.refGene, X1000g2014oct_eur)
+  select(Chr:End, X1000g2014oct_eur)
 ```
+
+We can use the convenient function `desc` to switch to descending order
+
+```{r}
+  arrange(anno, desc(X1000g2014oct_eur)) %>% 
+  select(Chr:End, X1000g2014oct_eur)
+```
+
 
 *******
 Exercise
@@ -402,6 +428,25 @@ filter(anno, Func.refGene=="exonic") %>%
   select(Chr:Gene.refGene) %>% 
   count(Gene.refGene) %>% 
   arrange(desc(n))
+```
+
+
+## Joining tables
+
+```{r}
+library(VariantAnnotation)
+vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
+vcfInfo <- as.data.frame(info(vcf))
+bind_cols(anno,vcfInfo)
+
+```
+
+
+```{r}
+vcfDf <- data.frame(Chr=seqnames(vcf),Start=start(vcf),End=end(vcf),vcfInfo, GT = geno(vcf)$GT,PM=geno(vcf)$PM)
+anno <- left_join(anno, vcfDf,by=c("Chr","Start","End"))
+write.csv(anno, file="myanno.hg19_multianno.joined.csv",row.names = FALSE)
+
 ```
 
 # Using annovar to make prediction
