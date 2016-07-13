@@ -1,7 +1,6 @@
 ---
 title: "Annotating and Filtering"
 author: "Mark Dunning"
-date: "24 June 2016"
 date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
 ---
 
@@ -12,6 +11,12 @@ Imagine that we've called a set of somatic variants from our paired tumour and n
 - Using `annovar` to generate a rich set of annotations for our variants
 - Recent advances in R ("`dplyr`") that allow us to filter and subset our data
 - How we can prioritise our results, and write pipelines for doing so
+
+# Working Directory
+
+```{}
+/home/participant/Course_Materials/Day2/
+```
 
 
 ## Why annotate
@@ -33,17 +38,11 @@ There are many annotation resources available, but we have chosen to demonstrate
 `annovar` is free for academic use. However, you need to supply a valid academic email address in order to download the software. If you wish to use `annovar` after the course. You will have to fill out the form on the [annovar](http://annovar.openbioinformatics.org/en/latest/user-guide/download/) website. 
 
 
-`annovar` provides "gene-based", region-based" and "filter-based" annotation.
+`annovar` provides "gene-based", region-based" and "filter-based" annotation and relies on *pre-downloaded* annotation files so all queries are done offline. Files can be downloaded from the UCSC genome browser or from the annovar website. Some of these files can be quite large, but fortunately we only have to download them once. For the course, we have downloaded some of these files to the directory `/home/participant/Course_Materials/software/annovar/humandb`. Each annotation file has a genome version associated with it. For our purposes we are going to be using `hg19`. 
 
-- *Gene-based*: whether variants cause a protein-coding change. If so, it will report the affected amino acids. This is the default annotation operation provided by `annovar`, so the required database files are provided.
-    + "RefSeq genes, UCSC genes, ENSEMBL genes, GENCODE genes, AceView genes, or many other gene definition systems."
-- *Region-based*: look for overlaps with pre-defined genomic regions
-    + e.g.  "conserved regions among 44 species, predicted transcription factor binding sites, segmental duplication regions, GWAS hits, database of genomic variants, DNAse I hypersensitivity sites, ENCODE H3K4Me1/H3K4Me3/H3K27Ac/CTCF sites, ChIP-Seq peaks, RNA-Seq peaks, or many other annotations on genomic intervals"
-- *Filter-based*: looks for variants in pre-defined databases. Not only the genomic location is taken into account, but also the change from reference to alternate allele
-    + dbSNP, 1000 Genome Project, NHLBI-ESP 6500 exomes or Exome Aggregation Consortium, 
-  
-`annovar` relies on *pre-downloaded* annotation files so all queries are done offline. Files can be downloaded from the UCSC genome browser or from the annovar website. Some of these files can be quite large, but fortunately we only have to download them once. For the course, we have downloaded some of these files to the directory `/home/participant/Course_Materials/software/annovar/humandb`. Each annotation file has a genome version associated with it. For our purposes we are going to be using `hg19`. 
+For your reference the script to download all the resources used in this session is
 
+`/home/participant/Course_Materials/software/annovar/annovar_commands.sh`
 
 ```{}
 ls -l ../software/annovar/humandb
@@ -52,93 +51,112 @@ ls -l ../software/annovar/humandb
 
 ## Preparing files for annovar
 
-Some of the commands in `annovar` require a specific input format. Fortunately, they have provided a script that can convert from popular file formats to their format. 
+Some of the commands in `annovar` require a specific input format. Fortunately, they have provided a script that can convert from popular file formats to their own format. 
 
-
-First we need to convert our `.vcf` file using a script from annovar `convert2annovar.pl`. 
+We convert our `.vcf` file using a script from annovar `convert2annovar.pl`
 
 ```{}
-../software/annovar/convert2annovar.pl -format vcf4old HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
+../software/annovar/convert2annovar.pl -format vcf4old -includeinfo HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
 ```
+
+```{}
+-format: vcfold, the input is in vcf format
+-includeinfo: Include the INFO fields from the vcf file
+>: redirect to the file of our choosing
+```
+
 
 ```{r echo=FALSE,comment=NA} 
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput",intern=TRUE),sep="\n")
 ```
 
-"The first five space or tab delimited fields are Chromosome ("chr" prefix is optional), Start, End, Reference Allelel, Alternative Allele. The rest of the columns are completely optional."
+The first five columns are compulsory have to contain
 
-    
+- Chromosome
+- Start Position
+- End Position
+- Reference base(s)
+- Observed base(s)
+
+All other columns are optional. They are not used in the annotation process, but will get carried-along with any annotation and filtering we perform
+
 ### Region-based Annotation
 
-Gene-based annotation is the default operation in annovar. The following command will annotate the file we have just prepared against the reference file located in `../software/annovar/humandb/hg19_refGene.txt`.
+Gene-based annotation is the default operation in `annovar` and is used to identify variants that cause protein-coding changes. Various gene-definition systems are supported.
+
+Database  | Keyword
+------------- | -------------
+RefSeq  | refGene
+UCSC    | knownGene
+Ensembl | ensGene
+Gencode | wgEncodeGencodeBasicV19
+
+
+
+The following command will annotate the file we have just prepared against the reference file located in `../software/annovar/humandb/hg19_refGene.txt`.
 
 
 ```{}
-../software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
+../software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb
 ```
 
-Two files are created:- `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function` 
+Two files are created:
 
-```{r echo=FALSE,comment=NA}
-cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function",intern=TRUE),sep="\n")
-```
+-`HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function`
 
-and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function`
+This file lists ***all*** variants in the input file are pre-pends two columns. The first states whether a given variant is within an exonic or not and gives the relevant gene name. 
 
 ```{r echo=FALSE,comment=NA}
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function",intern=TRUE),sep="\n")
 ```
 
-******
 
-Exercise
+- `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function` 
 
-- Read the variant function results into R
-    + `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function`
-    + How many of each type of variant do we have?
-- Read the exonic variant function file into R
-    + `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function`
-    + how many nonsyonymous SNVs do we have?
-    + how many synonymous? etc
-    
-******
+This file lists for the ***coding variants only*** whether the stated base-change will lead to a change in protein or not. Full definitions of all the terms is on the [annovar website](http://annovar.openbioinformatics.org/en/latest/user-guide/gene/)
 
-```{r echo=FALSE}
-varfun <- read.delim("HCC1143_vs_HCC1143_BL.flagged.muts.avinput.variant_function",header=FALSE)
-
+```{r echo=FALSE,comment=NA}
+cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function",intern=TRUE),sep="\n")
 ```
 
 
-```{r echo=FALSE}
-exonfun <- read.delim("HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_function",header=FALSE)
-```
 
 ### Region-based annotation
 
-More comprehensive details on the types of region-based filtering that is supported can be found on the [http://annovar.openbioinformatics.org/en/latest/user-guide/region/](annovar website).
+More comprehensive details on the types of region-based filtering that is supported can be found on the [http://annovar.openbioinformatics.org/en/latest/user-guide/region/](annovar website). Examples include:-
+
+
+Database  | Keyword
+------------- | -------------
+Cytoband  | cytoband
+Conserved Regions  | phastConsElements46way
+Transcription Factor Binding Sites | tfbsConsSites
+Published GWAS | gwasCatalog
+Database of Genomic Variants | dgvMerged
+Segmental Duplications | genomicSuperDups
+
+or region definitions of your choosing. Annotation against regions identified in ENCODE project is also described in its own section on the [annovar website](http://annovar.openbioinformatics.org/en/latest/user-guide/region/#identify-variants-in-encode-annotated-regions)
 
 The simplest form of region annotation is probably when we want to look at which "cytoband" each variant belongs to. This uses a reference file that contains the coordinates for each cytoband in a given genome version. 
-
-
 
 ```{}
 head ../software/annovar/humandb/hg19_cytoBand.txt
 ```
 
 ```{r echo=FALSE,comment=NA}
-cat(system("head ../ref_data/annovar/humandb/hg19_cytoBand.txt",intern=TRUE),sep="\n")
+cat(system("head ../software/annovar/humandb/hg19_cytoBand.txt",intern=TRUE),sep="\n")
 ```
 
 If didn't already have such a file it could be downloaded using:- 
 
 ```{}
-../software/annovar/annotate_variation.pl -buildver hg19 -downdb cytoBand ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -buildver hg19 -downdb cytoBand ../software/annovar/humandb/
 ```
 
-To perform the annotation, we need to specify `-regionanno`, to perform region-annotation and set the `dbtype` to `cytoBand`. 
+To perform the annotation, we use the same perl script but need to specify `-regionanno`, to perform region-annotation and set the `dbtype` to `cytoBand`. 
 
 ```{}
-../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ``` 
 
 This should result in a file being created with `.cytoBand` added as a file extension to your input file (e.g. `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.cytoBand`). An extra column has been added to indicate which chromosome band each variant is located on. In the event of a variant spanning multiple bands (obviously not in this case), the multiple bands would be listed here.
@@ -154,7 +172,7 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_cytoBand",inter
 In another example, we could annotation against locations that have been reported in previous GWAS studies 
 
 ```{}
-../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb
+../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb
 ```
 
 ```{r echo=FALSE,comment=NA}
@@ -168,6 +186,9 @@ Unlike the annotation performed in the previous section, which was based purely 
 
 Several types of database are available
 
+- dbSNP
+    + various versions
+    
 - Frequency of variants in whole-genome data
 
 - Frequency of variants in whole-exome data
@@ -183,7 +204,7 @@ For example, if we want to see which of our variants are present a in database o
 
 Now we select the `filter` option in annovar with a `dbtype` of `snp129`
 ```{}
-../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 This time we get two files created; `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped` and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_filtered`. The difference being that the `.._dropped` file contains details of all your variants that ***are*** in the database
@@ -198,10 +219,10 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped"
 
 Thus, the `.._filtered` file contains all the variants ***not found*** in the database. 
 
-We can perform annotation against 1000 genomes variants with the following:-
+We can perform annotation against 1000 genomes variants in europeans with the following:-
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 As before, `..._dropped` and `...filtered` files are produce. Again the `.._dropped` file contains variants that were found in the database. However, rather than printing and ID for the variant, it prints the minor allele frequency that is observed for that variant.
@@ -217,32 +238,32 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_
 We can also provide a minor allele frequency (maf) threshold. This will mean that only variants with a maf greater than the threshold will be printed to the `..._dropped` file.
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -maf 0.05
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -maf 0.05
 ```
 
 The commands above annotated against variants derived from european indivduals. If we have individuals of a different ethnicity, we probably want to use a different cohort. In this case, we annotate against frequencies observed in asian individuals.
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_afr -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_afr -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 Clinical variants.....
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype clinvar_20160302 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype clinvar_20160302 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 
 Exome Aggreation Consortium (ExAC)
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype exac03 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype exac03 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 Complete Genomics
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype cg69 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype cg69 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 
@@ -256,13 +277,13 @@ Up to this point, we have amassed quite a collection of tables of our set of var
 The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You many need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,exac03,clinvar_20160302 -operation g,r,r,f,f,f,f,f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,exac03,clinvar_20160302 -operation g,r,r,f,f,f,f,f -nastring NA -csvout
 ```
 
 The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,exac03 -operation g,f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,exac03 -operation g,f -nastring NA -csvout
 ```
 
 
@@ -483,7 +504,7 @@ write.csv(anno, file="myanno.hg19_multianno.joined.csv",row.names = FALSE)
 
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../ref_data/annovar/humandb/ -buildver hg19 -out myanno.pred -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno.pred -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
 ```
 
 
