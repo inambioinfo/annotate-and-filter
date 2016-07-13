@@ -123,19 +123,20 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_funct
 
 ### Region-based annotation
 
-More comprehensive details on the types of region-based filtering that is supported can be found on the [http://annovar.openbioinformatics.org/en/latest/user-guide/region/](annovar website). Examples include:-
+More comprehensive details on the types of region-based filtering that is supported can be found on the [http://annovar.openbioinformatics.org/en/latest/user-guide/region/](annovar website). Here we list some examples along with the "keyword" to be used when downloading and annotating against the database
 
 
-Database  | Keyword
+Database  | Keyword 
 ------------- | -------------
-Cytoband  | cytoband
+Cytoband  | cytoband 
+microRNA and snoRNA | wgRna 
 Conserved Regions  | phastConsElements46way
 Transcription Factor Binding Sites | tfbsConsSites
 Published GWAS | gwasCatalog
 Database of Genomic Variants | dgvMerged
 Segmental Duplications | genomicSuperDups
 
-or region definitions of your choosing. Annotation against regions identified in ENCODE project is also described in its own section on the [annovar website](http://annovar.openbioinformatics.org/en/latest/user-guide/region/#identify-variants-in-encode-annotated-regions)
+or region definitions of your choosing in `.bed` or `.gff` format. Annotation against regions identified in ENCODE project is also described in its own section on the [annovar website](http://annovar.openbioinformatics.org/en/latest/user-guide/region/#identify-variants-in-encode-annotated-regions)
 
 The simplest form of region annotation is probably when we want to look at which "cytoband" each variant belongs to. This uses a reference file that contains the coordinates for each cytoband in a given genome version. 
 
@@ -147,13 +148,13 @@ head ../software/annovar/humandb/hg19_cytoBand.txt
 cat(system("head ../software/annovar/humandb/hg19_cytoBand.txt",intern=TRUE),sep="\n")
 ```
 
-If didn't already have such a file it could be downloaded using:- 
+If didn't already have such a file it could be downloaded using the following. The `cytoBand` keyword (from the table above) is used along with the build version `hg19`.
 
 ```{}
 ../software/annovar/annotate_variation.pl -buildver hg19 -downdb cytoBand ../software/annovar/humandb/
 ```
 
-To perform the annotation, we use the same perl script but need to specify `-regionanno`, to perform region-annotation and set the `dbtype` to `cytoBand`. 
+To perform the annotation, we use need to specify `-regionanno`, to perform region-annotation and set the `dbtype` to `cytoBand`. 
 
 ```{}
 ../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
@@ -169,7 +170,7 @@ head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.cytoBand
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_cytoBand",intern=TRUE),sep="\n")
 ```
 
-In another example, we could annotation against locations that have been reported in previous GWAS studies 
+In another example, we could annotate against locations that have been reported in previous GWAS studies. The command is the same as the previous example, except we substitute `cytoBand` for the keyword for GWAS annotation (`gwasCatalog`)
 
 ```{}
 ../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb
@@ -179,32 +180,43 @@ In another example, we could annotation against locations that have been reporte
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_gwasCatalog",intern=TRUE),sep="\n")
 ```
 
+*******
+Exercise
+
+- Select any of the databases from the table that you think might be relevant to your study, and annotate the example SNV calls
+    + all the database files should already be downloaded.
+    
+*******
+
+
+
 
 ### Filter-based annotation
 
-Unlike the annotation performed in the previous section, which was based purely on the genomic location, *filter-based* annotation also takes the base-change into account. 
+Unlike the annotation performed in the previous section, which was based purely on the genomic location, *filter-based* annotation also takes the base-change into account. One can also use the observed frequency in the database population as a means to filter.
 
-Several types of database are available
+As before, many types of database are available. In this table, we list the *latest* version available:- 
 
-- dbSNP
-    + various versions
-    
-- Frequency of variants in whole-genome data
+Database  | Keyword 
+------------- | -------------
+dbSNP  | snp138
+1000 Genomes | 1000g2015aug
+Exome Aggregation Consortium | exac03
+Exome Sequencing Project | esp6500si_all 
+Complete Genomics Individuals | cg69
+ClinVar | clinvar_20160302
+COSMIC | cosmic70
+ICGC | icgc21
+NCI60 | nci60
 
-- Frequency of variants in whole-exome data
-
-- Functional prediction of variants in whole-genome data
-
-- Functional prediction of variants in whole-exome data
-
-- Disease-specific variants
-
+- Which are disease and healthy?
+- dbSNP versions
 
 For example, if we want to see which of our variants are present a in database of known (or common) SNPs we could use the `dbSNP` database. 
 
-Now we select the `filter` option in annovar with a `dbtype` of `snp129`
+Now we select the `filter` option in annovar with a `dbtype` of `snp138`
 ```{}
-../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp138  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 This time we get two files created; `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped` and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_filtered`. The difference being that the `.._dropped` file contains details of all your variants that ***are*** in the database
@@ -274,7 +286,7 @@ Complete Genomics
 
 Up to this point, we have amassed quite a collection of tables of our set of variants annotated / filtered against various databases. A particularly appealing feature of `annovar` is that we can define protocols to combine multiple filters and collect the results in the same table. 
 
-The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You many need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
+The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
 
 ```{}
 ../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,snp129,1000g2014oct_eur,1000g2014oct_afr,exac03,clinvar_20160302 -operation g,r,r,f,f,f,f,f -nastring NA -csvout
