@@ -242,10 +242,10 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped"
 
 Thus, the `.._filtered` file contains all the variants ***not found*** in the database. The implication being that we want to remove common variants found amongst healthy individuals from our list. There is nothing to stop us using multiple versions of dbSNP in the filtering as we will see later-on.
 
-We can perform annotation against 1000 genomes variants in *europeans* with the following:-
+We can perform annotation against 1000 genomes dataset with the following:-
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2015aug_all -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 As before, `..._dropped` and `...filtered` files are produce. Again the `.._dropped` file contains variants that were found in the database. However, rather than printing and ID for the variant, it prints the minor allele frequency that is observed for that variant.
@@ -261,13 +261,13 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_
 We can also provide a minor allele frequency (maf) threshold. This will mean that only variants with a maf greater than the threshold will be printed to the `..._dropped` file.
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -maf 0.05
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2015aug_all -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -maf 0.05
 ```
 
-The commands above annotated against variants derived from european indivduals. If we have individuals of a different ethnicity, we probably want to use a different cohort. In this case, we annotate against frequencies observed in asian individuals.
+The commands above annotated against variants derived from european indivduals. If we have individuals of a different ethnicity, we probably want to use a different cohort. In this case, we annotate against frequencies observed in european individuals.
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_afr -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 ## Healthy or disease individuals?
@@ -304,36 +304,46 @@ Up to this point, we have amassed quite a collection of tables of our set of var
 The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,snp138,1000g2014oct_eur,1000g2014oct_afr,exac03,clinvar_20160302,cosmic70,icgc21 -operation g,r,r,r,r,f,f,f,f,f,f,f,f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,1000g2015aug_all,esp6500si_all,clinvar_20160302,cosmic70,nci60 -operation g,r,r,r,r,f,f,f,f,f,f -nastring NA -csvout
 ```
 
 The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
 
-```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,exac03 -operation g,f -nastring NA -csvout
-```
-
+Having opened this file into a spreadsheet program we can of course filter and sort the data as we see fit. However, due to the sheer number of columns we have generated this may prove a bit unwieldy. Therefore we are going to introduce an R package that will make the interrogation and comprehension of such a table more intuitive.
 
 # Using R to interrogate and filter an annotation table
 
 ## Introducing dplyr
 
-`dplyr` is a very powerful package for manipulating data in tables. The [cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) is highly recommended and summarises all the functions within the package. We won't have time to cover everything here today.
+`dplyr` is a very powerful package for manipulating data in tables and is part of the *tidy-verse* collection of packages that provide a seamless and consistent interface to exploring and analysing data.
+
+![](images/data-cycle.png)
+
+The process of analysing a dataset is rarely a linear one, and will generate scores of intermediate plots and tables along the way that don't make their way to a final publication. Packages such as `dplyr` and `ggplot2` (for plotting) provide an interface whereby the effort to produce meaningful summaries and graphics of our data is minimised. This allows us to worry more about the interpretation and what questions we should ask, rather than writing code.
+
+
+
+
+
+The [cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) is highly recommended and summarises all the functions within the package. We won't have time to cover everything here today.
 
 For more information on `dplyr` see our one-day course [Data Manipulation and Visualisation using R](http://bioinformatics-core-shared-training.github.io/r-intermediate/)
 
-
+The first step is to load the `dplyr` library.
 ```{r message=FALSE}
 library(dplyr)
 ```
 
-the `tbl_df` function is used to convert the standard R data.frame into a special `dplyr` one that has a nicer standard display.
+An incredibly useful but simple function is `tbl_df` which converts the standard R `data.frame` into a special `dplyr` one that has a nicer standard display. Rather than filling the whole R console we can see a snapshot of the data frame and summaries of the data contained in each column
+
 
 ```{r}
 anno <- read.csv("myanno.hg19_multianno.csv")
 anno <- tbl_df(anno)
 anno
 ```
+
+`dplyr` introduces a series of verbs, each of which is capable of performing a specific operation on a data frame in an efficient manner. The syntax of the verbs is very consistent. Not only does this allow us to easily switch between using different operations, but we can chain the operations together as we will see later.
 
 ### select
 
@@ -343,20 +353,40 @@ anno
 select(anno, Func.refGene)
 ```
 
-Mutiple columns can be selected by separating their names with a comma
+No great advance in our capabilities yet, as we already know how to select a variable from a table using the `$` operator
 
+```{r eval=FALSE}
+anno$Func.refGene
+```
+
+However, the syntax to select multiple columns is a lot more concise. Mutiple columns can be selected by separating their names with a comma
+
+Compare:- 
 ```{r}
 select(anno, Func.refGene,ExonicFunc.refGene)
 ```
 
+to
+
+```{r}
+anno[,c("Func.refGene","ExonicFunc.refGene")]
+```
+
+Non R users probably find these commands a bit obtuse
+- why the `[ ]`?
+- what is `c`?
+- need to remember the row and column index
+- `[,...]` means display all rows
+
+However, `select` is a lot more intuitive; easier to convert to the sentance “Select the Func.refGene and ExonicFunc.refGene columns from patients”
+
 We can select a range of columns with a `:`
 
 ```{r}
-select(anno, cytoBand:X1000g2014oct_afr)
+select(anno, cytoBand:X1000g2015aug_all)
 ```
 
-Or suppress columns with a `-` in front of their name
-
+Or suppress columns by putting with a `-` in front of their name
 
 ```{r}
 select(anno, -End)
@@ -365,20 +395,21 @@ select(anno, -End)
 Combinations of the above are possible
 
 ```{r}
-select(anno, cytoBand:X1000g2014oct_afr,-snp129)
+select(anno, cytoBand:X1000g2015aug_all,-snp129,-AAChange.refGene)
 ```
+
+Some convenient functions are available so we don't need to specify the column names in full
 
 ```{r}
 select(anno, starts_with("CLN"))
+select(anno, contains("1000g"))
 ```
-
-
 
 *******
 Exercise
 
 - Select the columns `Func.refGene` to `AAChange.refGene` 
-    + you could try the convenience function `contains` to do this, or using the `:` notation
+    + you could try the convenience functions `contains` `ends_with` to do this, or using the `:` notation
 - Now remove the column `GeneDetail.refGene`
 - Append the chromosome start and end position columns
 
@@ -394,66 +425,119 @@ We should note at this point, that we have not actually changed the data frame a
 anno
 ```
 
-### mutate
 
-Sometimes we might want to change the data available in the table, either by adding new columns or modifying existing ones. This is supported by the `mutate` function. We have to specify the column name (which doesn't already have to exist) and some new values to put in this column. Any valid R function can be used to create values, provided the number of values to try add is the same as the number of rows.
-
-For example, we might want to change the values stored for `Chr` so they have the usual prefix.
-
-```{r}
-mutate(anno, Chr=paste0("Chr", Chr))
-```
 
 ### filter
 
-A particularly useful operation for us is going to be `filter`. The syntax is consistent with `select` and uses the usual selection techniques in R such as `==` 
+A particularly useful operation for us is going to be `filter`. Again, there is nothing here that we couldn't do with "base R", but it will allow us to create more readable code.
+
+The syntax is consistent with `select` and uses the usual selection techniques in R such as `==`.
+
+Selecting variants on chromsome 1
 
 ```{r}
 filter(anno, Chr ==1)
 ```
 
+Selecting *exonic* variants
 ```{r}
-filter(anno, X1000g2014oct_eur < 0.05)
+filter(anno, Func.refGene == "exonic")
+```
+
+Multiple conditions can be separated by a `,`
+
+"*Exonic variants on chromosome 1 that are no synonymous or unknown*"
+```{r}
+filter(anno, Func.refGene == "exonic", Chr == 1, ExonicFunc.refGene != "synonymous SNV", ExonicFunc.refGene != "unknown")
+```
+
+Variants that are found in dbSNP
+```{r}
+filter(anno, is.na(snp129))
+```
+
+Variants that are found in GWAS
+
+```{r}
+filter(anno, !is.na(gwasCatalog))
 ```
 
 
-Again, multiple conditions can be added
+
+*******
+Exercise
+
+- Find which variants are present COSMIC database
+- Find which variants are not in segmental duplications
+- Find all variants that are in TP53 and exonic
+- Find all variants that are in TP53, exonic and less than 0.05 maf in 1000 genomes individuals and less than 0.05 frequency in the exon sequencing project
+
+*******
+
+## Combining commands with "pipes"
+
+A slighty annoyance with the first exercise above is that once we've filtered for COSMIC variants we don't actually see the COSMIC column appearing in the output:-
 
 ```{r}
-filter(anno, Chr==1, Func.refGene == "exonic")
+filter(anno, !is.na(cosmic70))
 ```
 
+Given what we have done so far, it would seem natural to follow this `filter` statement with a `select` to view the columns we are interested in
+
+It is quite common to nest commands in R into a single line
+
 ```{r}
-filter(anno, Func.refGene != "intronic", Func.refGene != "exonic")
+anno <- tbl_df(read.csv("myanno.hg19_multianno.csv"))
 ```
 
-A useful shortcut function is `count`, which will give a table of how many values are found in a particular column
+which we read as 
+
+> apply the function `tbl_df` to the result of reading the file myanno.hg19_multianno.csv
+
+The following line of R code is perfectly valid and does exactly what we want. However, reading the code back to ourselves is a bit clunky.
 
 ```{r}
-count(anno, Func.refGene)
+select(filter(anno, !is.na(cosmic70)), Chr:Alt, cosmic70)
+```
+
+> select from the result of filter COSMIC variants, the columns Chr to Alt and cosmic70
+
+or we can split over multiple lines
+```{r}
+select(filter(anno, !is.na(cosmic70)),
+       Chr:Alt, cosmic70)
+```
+
+
+We always have to work out what the first statement was, and work forwards from that.
+ - the arguments to a function are far-away from the function call
+
+
+***piping*** is a familiar concept in unix where the output of one command is used as input to the following line. The `dplyr` package allows such operations to be performed in R via use of the ` %>% ` operation from the `magrittr` package
+
+- Shortcut in RStudio: CTRL + SHIFT + M, CMD + SHIFT + M (Mac)
+
+`dplyr` functions are designed to take a data frame as their first argument, and return a data frame as an output. This makes them ideal to use with a pipe.
+
+The code from before can be rewritten as follows, making it easier to see the order in which the operations were performed.
+
+```{r}
+filter(anno, !is.na(cosmic70)) %>% 
+  select(Chr:Alt, cosmic70)
 ```
 
 
 *******
 Exercise
 
-- Find all variants that are in TP53 and exonic
-- Find all variants that are in TP53, exonic and less than 0.05 maf in european and african 1000 genomes individuals
-- Find which variants are present in the GWAS catalog
-
-*******
-
-### Combining commands with "pipes"
-
-piping is a familiar concept in unix where the output of one command is used as input to the following line. The `dplyr` package allows such operations to be performed in R via use of the ` %>% ` operation from the `magrittr` package
-
-`dplyr` functions are designed to take a data frame as their first argument, and return a data frame as an output.
-
-Say we want all exonic variants and then display all the columns that relate to the gene-based annotation
+- Explain in words what the following chain of commands is doing
 
 ```{r}
 filter(anno, Func.refGene=="exonic") %>% 
-  select(contains("refGene"))
+  filter(!is.na(genomicSuperDups)) %>% 
+  filter(is.na(snp129)) %>% 
+  filter(X1000g2015aug_all < 0.05) %>% 
+  select(Chr:ExonicFunc.refGene,-GeneDetail.refGene,-Func.refGene,X1000g2015aug_all)
 ```
 
 
@@ -462,6 +546,7 @@ Exercise
 
 - Find which variants are present in the GWAS catalog
 - Print the chromsome, start, end, and Gene name for these variants
+- Use a "pipe" command to write your answer
 
 ```{r}
 filter(anno, !is.na(gwasCatalog)) %>% 
@@ -475,21 +560,21 @@ filter(anno, !is.na(gwasCatalog)) %>%
 The `arrange` function can be used to order rows. For example ordering according to 1000 genomes frequency
 
 ```{r}
-arrange(anno, X1000g2014oct_eur)
+arrange(anno, X1000g2015aug_all)
 ```
 
 However, we can't actually see the column, so using a `select` statement afterwards seems a good idea
 
 ```{r}
-  arrange(anno, X1000g2014oct_eur) %>% 
-  select(Chr:End, X1000g2014oct_eur)
+  arrange(anno, X1000g2015aug_all) %>% 
+  select(Chr:End, X1000g2015aug_all)
 ```
 
 We can use the convenient function `desc` to switch to descending order
 
 ```{r}
-  arrange(anno, desc(X1000g2014oct_eur)) %>% 
-  select(Chr:End, X1000g2014oct_eur)
+  arrange(anno, desc(X1000g2015aug_all)) %>% 
+  select(Chr:End, X1000g2015aug_all)
 ```
 
 
@@ -509,23 +594,6 @@ filter(anno, Func.refGene=="exonic") %>%
 ```
 
 
-## Joining tables
-
-```{r}
-library(VariantAnnotation)
-vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
-vcfInfo <- as.data.frame(info(vcf))
-bind_cols(anno,vcfInfo)
-
-```
-
-
-```{r}
-vcfDf <- data.frame(Chr=seqnames(vcf),Start=start(vcf),End=end(vcf),vcfInfo, GT = geno(vcf)$GT,PM=geno(vcf)$PM)
-anno <- left_join(anno, vcfDf,by=c("Chr","Start","End"))
-write.csv(anno, file="myanno.hg19_multianno.joined.csv",row.names = FALSE)
-
-```
 
 # Using annovar to make prediction
 
