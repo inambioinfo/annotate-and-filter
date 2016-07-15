@@ -545,7 +545,7 @@ filter(anno, Func.refGene=="exonic") %>%
 Exercise
 
 - Find which variants are present in the GWAS catalog
-- Print the chromsome, start, end, and Gene name for these variants
+- Print the chromsome, start, end, Gene name and 1000 genomes frequency for these variants
 - Use a "pipe" command to write your answer
 
 ```{r}
@@ -609,4 +609,6 @@ preds <- read.csv("myanno.pred.hg19_multianno.csv") %>%
 
 preds
 ```
+
+
 
