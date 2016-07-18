@@ -593,10 +593,59 @@ filter(anno, Func.refGene=="exonic") %>%
   arrange(desc(n))
 ```
 
+# Joining tables
+
+We might also want to incorporate quality information from the vcf file into the results. In many real life situations, data are spread across multiple tables or spreadsheets. Usually this occurs because different types of information about a subject are collected from different sources. It may be desirable for some analyses to combine data from two or more tables into a single data frame based on a common column, for example, an attribute that uniquely identifies the subject.
+
+`dplyr` provides a set of join functions for combining two data frames based on matches within specified columns. These operations are very similar to carrying out join operations between tables in a relational database using SQL.
+
+## The "left join"
+
+![](images/dplyr_left_join.png)
+
+To illustrate join operations we'll first consider the most common type, a "left join". In the schematic below the two data frames share a common column, V1. We can combine the two data frames into a single data frame by matching rows in the first data frame with those in the second data frame that share the same value of V1.
+
+`left_join` returns all rows from the first data frame regardless of whether there is a match in the second data frame. Rows with no match are included in the resulting data frame but have NA values in the additional columns coming from the second data frame. 
+
+To put this into practice, we are going to join the annotation data frame we have just created with extra information available in the `.vcf` file
+
+We can first import the `.vcf` file as we saw yesterday.
+
+```{r}
+library(VariantAnnotation)
+vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
+```
+
+We can create a new data frame comprised of the ranges information for the variants and the `INFO` matrix. Using the the new `tbl_df` function
+
+```{r}
+extra.info <- tbl_df(data.frame(rowRanges(vcf),info(vcf)))
+extra.info
+```
+
+In order to join the two tables we need to have variables that are in common. In our case the combination of chromosome, start and end position should be unique. We have to rename these columns so they are the same as the equivalent columns in `anno`
+
+```{r}
+extra.info <- mutate(extra.info, Chr=seqnames) %>% 
+  mutate(Start=start) %>% 
+  mutate(End=end) %>% 
+  select(-start,end,seqnames)
+extra.info 
+```
+
+We can now complete the join. The function should automatically detect which columns are in-common. If we want to be more explicit we can use the `by` argument.
+
+```{r}
+anno.extra <- left_join(anno, extra.info)
+
+select(anno.extra, Chr:Gene.refGene, DP:DS)
+```
+
 
 
 # Using annovar to make prediction
 
+`annovar` 
 
 ```{}
 ../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno.pred -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
@@ -610,5 +659,9 @@ preds <- read.csv("myanno.pred.hg19_multianno.csv") %>%
 preds
 ```
 
+# References
 
+https://genomemedicine.biomedcentral.com/articles/10.1186/gm543
+
+http://blog.goldenhelix.com/ajesaitis/the-sate-of-variant-annotation-a-comparison-of-annovar-snpeff-and-vep/
 
