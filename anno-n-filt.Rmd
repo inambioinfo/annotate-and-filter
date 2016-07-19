@@ -16,7 +16,7 @@ Imagine that we've called a set of somatic variants from our paired tumour and n
 # Working Directory
 
 ```{}
-/home/participant/Course_Materials/Day2/
+/home/participant/Course_Materials/Day3
 ```
 
 
