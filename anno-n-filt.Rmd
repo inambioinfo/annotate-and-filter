@@ -1,5 +1,5 @@
 ---
-title: "Annotating and Filtering"
+title: "Annotating, Filtering and Prioritising"
 author: "Mark Dunning"
 date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
 ---
@@ -12,6 +12,7 @@ Imagine that we've called a set of somatic variants from our paired tumour and n
 - Using `annovar` to create a human-readable and searchable table of annotation results
 - Recent advances in R ("`dplyr`") that allow us to filter and subset our data more efficiently
 - How we can prioritise our results, and write pipelines for doing so
+- Use `ggplot2` to visualise our filtering results
 
 # Working Directory
 
@@ -57,11 +58,11 @@ Some of the commands in `annovar` require a specific input format. Fortunately, 
 We convert our `.vcf` file using a script from annovar `convert2annovar.pl`
 
 ```{}
-../software/annovar/convert2annovar.pl -format vcf4old -includeinfo HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
+../software/annovar/convert2annovar.pl -format vcf4old HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
 ```
 
 ```{}
--format: vcfold, the input is in vcf format
+-format: vcfold, the input is in vcf format (old-style)
 -includeinfo: Include the INFO fields from the vcf file
 >: redirect to the file of our choosing
 ```
@@ -294,7 +295,14 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_cosmic70_droppe
 
 This is slightly contrary to the 1000 genomes and dbSNP filtering we did previously where we wanted to retain variants that were not found in a database. Fortunately in the next section we will look at any approach where we can get results for all our variants in a single table that we can develop our own filtering criteria for.
 
-### LJB* (dbNSFP) non-synonymous variants annotation
+### Predicting consequence
+
+`annovar` also has a series of filter that can help us to [predict the consequence](http://annovar.openbioinformatics.org/en/latest/user-guide/filter/#ljb42-dbnsfp-non-synonymous-variants-annotation) of a particular mutation. 
+
+```{}
+
+```
+
 
 
 ## Combining multiple annotations and filters
@@ -304,7 +312,7 @@ Up to this point, we have amassed quite a collection of tables of our set of var
 The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,1000g2015aug_all,esp6500si_all,clinvar_20160302,cosmic70,nci60 -operation g,r,r,r,r,f,f,f,f,f,f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out HCC1143_vs_HCC1143_BL.flagged.muts.annovar -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,1000g2015aug_all,esp6500si_all,clinvar_20160302,cosmic70,nci60,ljb23_sift,ljb23_mt,ljb23_ma -operation g,r,r,r,r,f,f,f,f,f,f,f,f,f -nastring NA -csvout
 ```
 
 The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
@@ -338,7 +346,7 @@ An incredibly useful but simple function is `tbl_df` which converts the standard
 
 
 ```{r}
-anno <- read.csv("myanno.hg19_multianno.csv")
+anno <- read.csv("HCC1143_vs_HCC1143_BL.flagged.muts.annovar.hg19_multianno.csv")
 anno <- tbl_df(anno)
 anno
 ```
@@ -373,6 +381,7 @@ anno[,c("Func.refGene","ExonicFunc.refGene")]
 ```
 
 Non R users probably find these commands a bit obtuse
+
 - why the `[ ]`?
 - what is `c`?
 - need to remember the row and column index
@@ -426,8 +435,26 @@ anno
 ```
 
 
+### `mutate`
 
-### filter
+The `mutate` operation allows us to compute and append one or more new columns to a data frame. We can specify a new column name, or overwrite an existing one. As above, we do not change the data frame so need to create a new variable if we want the changes to persist. 
+
+For example, we might want to add the *"chr"* prefix to all our chromosome names. In order to perform this operation we need to specify a function that will take a vector as an input and return as vector of the same length as an output. In other words, a function that will transform each item in a vector and return a vector of transformed values.
+
+If you haven't seen the `paste` function before, it is used to join character vectors together with the option to separate by a fixed character. The default separater is a single space `" "`. However we don't want any separater in this case so specify the empty string `""`. Alternatively the convenient function `paste0` can be used.
+
+```{r}
+mutate(anno, Chr = paste("Chr", Chr,sep=""))
+mutate(anno, Chr = paste0("Chr", Chr))
+```
+
+```{r}
+anno <- mutate(anno, Chr =paste0("Chr", Chr))
+anno
+```
+
+
+### `filter`
 
 A particularly useful operation for us is going to be `filter`. Again, there is nothing here that we couldn't do with "base R", but it will allow us to create more readable code.
 
@@ -444,7 +471,7 @@ Selecting *exonic* variants
 filter(anno, Func.refGene == "exonic")
 ```
 
-Multiple conditions can be separated by a `,`
+Multiple conditions can be separated by a `,`. This is the same as using `&` in base R.
 
 "*Exonic variants on chromosome 1 that are no synonymous or unknown*"
 ```{r}
@@ -462,21 +489,26 @@ Variants that are found in GWAS
 filter(anno, !is.na(gwasCatalog))
 ```
 
+Variants that not found in 1000 genomes, ***or*** have a maf frequency less than 0.05. Here we use the operation `|` to combine different logical tests.
+
+```{r}
+filter(anno, is.na(X1000g2015aug_all) | X1000g2015aug_all < 0.05)
+```
+
 
 
 *******
 Exercise
 
+- Find all variants that are in TP53 and exonic
 - Find which variants are present COSMIC database
 - Find which variants are not in segmental duplications
-- Find all variants that are in TP53 and exonic
-- Find all variants that are in TP53, exonic and less than 0.05 maf in 1000 genomes individuals and less than 0.05 frequency in the exon sequencing project
 
 *******
 
 ## Combining commands with "pipes"
 
-A slighty annoyance with the first exercise above is that once we've filtered for COSMIC variants we don't actually see the COSMIC column appearing in the output:-
+A slighty annoyance with theexercise above is that once we've filtered for COSMIC variants we don't actually see the COSMIC column appearing in the output:-
 
 ```{r}
 filter(anno, !is.na(cosmic70))
@@ -536,7 +568,7 @@ Exercise
 filter(anno, Func.refGene=="exonic") %>% 
   filter(!is.na(genomicSuperDups)) %>% 
   filter(is.na(snp129)) %>% 
-  filter(X1000g2015aug_all < 0.05) %>% 
+  filter(X1000g2015aug_all < 0.05 | is.na(X1000g2015aug_all)) %>% 
   select(Chr:ExonicFunc.refGene,-GeneDetail.refGene,-Func.refGene,X1000g2015aug_all)
 ```
 
@@ -545,7 +577,7 @@ filter(anno, Func.refGene=="exonic") %>%
 Exercise
 
 - Find which variants are present in the GWAS catalog
-- Print the chromsome, start, end, Gene name and 1000 genomes frequency for these variants
+- Print the chromsome, start, end, Gene name and 1000 genomes frequency and GWAS catalogue details for these variants
 - Use a "pipe" command to write your answer
 
 ```{r}
@@ -578,32 +610,16 @@ We can use the convenient function `desc` to switch to descending order
 ```
 
 
-*******
-Exercise
-
-- Which genes have the greatest number of exonic variants?
-
-*******
-
-
-```{r echo=FALSE}
-filter(anno, Func.refGene=="exonic") %>% 
-  select(Chr:Gene.refGene) %>% 
-  count(Gene.refGene) %>% 
-  arrange(desc(n))
-```
-
-# Joining tables
+## Joining tables
 
 We might also want to incorporate quality information from the vcf file into the results. In many real life situations, data are spread across multiple tables or spreadsheets. Usually this occurs because different types of information about a subject are collected from different sources. It may be desirable for some analyses to combine data from two or more tables into a single data frame based on a common column, for example, an attribute that uniquely identifies the subject.
 
 `dplyr` provides a set of join functions for combining two data frames based on matches within specified columns. These operations are very similar to carrying out join operations between tables in a relational database using SQL.
 
-## The "left join"
 
 ![](images/dplyr_left_join.png)
 
-To illustrate join operations we'll first consider the most common type, a "left join". In the schematic below the two data frames share a common column, V1. We can combine the two data frames into a single data frame by matching rows in the first data frame with those in the second data frame that share the same value of V1.
+To illustrate join operations we'll consider the most common type, a "left join". In the schematic below the two data frames share a common column, V1. We can combine the two data frames into a single data frame by matching rows in the first data frame with those in the second data frame that share the same value of V1.
 
 `left_join` returns all rows from the first data frame regardless of whether there is a match in the second data frame. Rows with no match are included in the resulting data frame but have NA values in the additional columns coming from the second data frame. 
 
@@ -628,8 +644,7 @@ In order to join the two tables we need to have variables that are in common. In
 ```{r}
 extra.info <- mutate(extra.info, Chr=seqnames) %>% 
   mutate(Start=start) %>% 
-  mutate(End=end) %>% 
-  select(-start,end,seqnames)
+  mutate(End=end)
 extra.info 
 ```
 
@@ -638,25 +653,6 @@ We can now complete the join. The function should automatically detect which col
 ```{r}
 anno.extra <- left_join(anno, extra.info)
 
-select(anno.extra, Chr:Gene.refGene, DP:DS)
-```
-
-
-
-# Using annovar to make prediction
-
-`annovar` 
-
-```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out myanno.pred -remove -protocol dbnsfp30a -operation f -nastring NA -csvout
-```
-
-
-```{r}
-preds <- read.csv("myanno.pred.hg19_multianno.csv") %>% 
-  tbl_df
-
-preds
 ```
 
 # References
