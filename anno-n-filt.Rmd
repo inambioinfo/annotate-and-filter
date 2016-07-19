@@ -14,6 +14,15 @@ Imagine that we've called a set of somatic variants from our paired tumour and n
 - How we can prioritise our results, and write pipelines for doing so
 - Use `ggplot2` to visualise our filtering results
 
+The `.vcf` file we are going to be using is `HCC1143_vs_HCC1143_BL.flagged.muts.vcf`, which we can quickly inspect using `VariantAnnotation`
+
+```{r message=FALSE,echo=FALSE}
+library(VariantAnnotation)
+vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
+rowRanges(vcf)
+```
+
+
 # Working Directory
 
 ```{}
@@ -33,7 +42,7 @@ Imagine that we've called a set of somatic variants from our paired tumour and n
     
 ## Introduction to annovar
 
-There are many annotation resources available, but we have chosen to demonstrate `annovar` for ease of usage and compatibility across platforms. `annovar` is a suite of perl scripts that can perform a variety of annotation and filtering tasks. It can also collate the results from annotating against different databases into one convenient table.
+There are many annotation resources available, but we have chosen to demonstrate `annovar`. There is an overhead associated with downloading the required annotation files, and a lot of disk space is consumed. However, you will hopefully agree that once configured it is relatively easy to use. `annovar` is a suite of perl scripts that can perform a variety of annotation and filtering tasks. It can also collate the results from annotating against different databases into one convenient table.
 
 ***Important:- annovar license***
 
@@ -46,10 +55,6 @@ For your reference the script to download all the resources used in this session
 
 `/home/participant/Course_Materials/software/annovar/annovar_commands.sh`
 
-```{}
-ls -l ../software/annovar/humandb
-```
-
 
 ## Preparing files for annovar
 
@@ -58,8 +63,13 @@ Some of the commands in `annovar` require a specific input format. Fortunately, 
 We convert our `.vcf` file using a script from annovar `convert2annovar.pl`
 
 ```{}
-../software/annovar/convert2annovar.pl -format vcf4old HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
+../software/annovar/convert2annovar.pl -format vcf4old  HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput
 ```
+
+```{r echo=FALSE}
+system("../software/annovar/convert2annovar.pl -format vcf4old  HCC1143_vs_HCC1143_BL.flagged.muts.vcf > HCC1143_vs_HCC1143_BL.flagged.muts.avinput")
+```
+
 
 ```{}
 -format: vcfold, the input is in vcf format (old-style)
@@ -69,7 +79,7 @@ We convert our `.vcf` file using a script from annovar `convert2annovar.pl`
 
 
 ```{r echo=FALSE,comment=NA} 
-cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput",intern=TRUE),sep="\n")
+cat(system("head -n2 HCC1143_vs_HCC1143_BL.flagged.muts.avinput",intern=TRUE),sep="\n")
 ```
 
 The first five columns are compulsory and contain
@@ -80,7 +90,7 @@ The first five columns are compulsory and contain
 - Reference base(s)
 - Observed base(s)
 
-All other columns are optional. They are not used in the annotation process, but will get carried-along with any annotation and filtering we perform. There is some duplication of information (e.g. position and base-change) but later will look at how to select particular columns of interest in R.
+All other columns are optional. These columns are not used in the annotation process, but will get carried-along with any annotation and filtering we perform if we wish. 
 
 ### Region-based Annotation
 
@@ -99,6 +109,11 @@ The following command will annotate the file we have just prepared against the r
 ```{}
 ../software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb
 ```
+
+```{r echo=FALSE}
+system("../software/annovar/annotate_variation.pl -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb")
+```
+
 
 Two files are created:
 
@@ -119,12 +134,6 @@ cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.exonic_variant_funct
 ```
 
 This file lists for the ***coding variants only*** whether the stated base-change will lead to a change in protein or not. Full definitions of all the terms is on the [annovar website](http://annovar.openbioinformatics.org/en/latest/user-guide/gene/)
-
-If we wanted to annotate against UCSC gene definitions we need to add the `-dbtype` argument with the keyword `knownGene` (taken from the table above).
-
-```{}
-../software/annovar/annotate_variation.pl -buildver hg19 -dbtype knownGene HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb
-```
 
 
 ### Region-based annotation
@@ -160,11 +169,18 @@ If didn't already have such a file it could be downloaded using the following. T
 ../software/annovar/annotate_variation.pl -buildver hg19 -downdb cytoBand ../software/annovar/humandb/
 ```
 
+
+
 To perform the annotation, we use need to specify `-regionanno`, to perform region-annotation and set the `dbtype` to `cytoBand`. 
 
 ```{}
 ../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ``` 
+
+```{r echo=FALSE}
+system("../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype cytoBand  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/")
+```
+
 
 This should result in a file being created with `.cytoBand` added as a file extension to your input file (e.g. `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.cytoBand`). An extra column has been added to indicate which chromosome band each variant is located on. In the event of a variant spanning multiple bands (obviously not in this case), the multiple bands would be listed here.
 
@@ -176,27 +192,19 @@ head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.cytoBand
 cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_cytoBand",intern=TRUE),sep="\n")
 ```
 
-In another example, we could annotate against locations that have been reported in previous GWAS studies. The command is the same as the previous example, except we substitute `cytoBand` for the keyword for GWAS annotation (`gwasCatalog`)
-
-```{}
-../software/annovar/annotate_variation.pl -regionanno -build hg19 -dbtype gwasCatalog HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb
-```
-
-This time we get a file `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_gwasCatalog`. The only entries in the file are those overlapping regions reported in GWAS studies
-
-```{r echo=FALSE,comment=NA}
-cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_gwasCatalog",intern=TRUE),sep="\n")
-```
-
 *******
+*******
+*******
+
 Exercise
 
 - Select any of the databases from the table that you think might be relevant to your study, and annotate the example SNV calls
     + all the database files should already be downloaded.
-    
+    + try the GWAS catalogue if you are not sure    
+
 *******
-
-
+*******
+*******
 
 
 ### Filter-based annotation
@@ -217,7 +225,7 @@ Database  | Keyword
 [ICGC](http://annovar.openbioinformatics.org/en/latest/user-guide/filter/#icgc-annotations) | icgc21
 [NCI60](http://annovar.openbioinformatics.org/en/latest/user-guide/filter/#nci60-annotations) | nci60
 
-As we will see, filter-based annotation is much the same as region- and gene-based. However, when downloading for the first time we have to add an additional `-webfrom annovar` argument into the command as the filter-based files are provided by the annovar website. For the purposes of this session, all the files have already been provided.
+As we will see, filter-based annotation is much the same as region- and gene-based. However, when downloading for the first time we have to add an additional `-webfrom annovar` argument into the command as the filter-based files are provided by the annovar website. For the purposes of this session, all the files have already been provided. Here is how we would download the cosmic data.
 
 ```{}
 ../software/annovar/annotate_variation.pl -buildver hg19 -downdb -webfrom annovar cosmic70 ../software/annovar/humandb/
@@ -226,10 +234,15 @@ As we will see, filter-based annotation is much the same as region- and gene-bas
 It seems natural to use the latest version of a database for the most-comprehensive annotation. However, the annovar website suggests that we be cautious with regards to [dbSNP](http://annovar.openbioinformatics.org/en/latest/user-guide/filter/#dbsnp-annotations). As dbSNP has been expanded to include variants from other large-scale projects (such as 1000 genomes) it has become somewhat "contaminated" by variants with very low frequency or with clinical relevance. Thus, ***dbSNP129*** is regarded as being the last clean version of the database.
 
 
-Now we select the `filter` option in annovar with a `dbtype` of `snp129`
+To filter against dbSNP 129 we select the `filter`  to `.annotate_variation.pl` with a `dbtype` of `snp129`
 ```{}
 ../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
+
+```{r echo=FALSE}
+system("../software/annovar/annotate_variation.pl -filter -buildver hg19 -dbtype snp129  HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/")
+```
+
 
 This time we get two files created; `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_dropped` and `HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_snp129_filtered`. The difference being that the `.._dropped` file contains details of all your variants that ***are*** in the database
 
@@ -249,26 +262,25 @@ We can perform annotation against 1000 genomes dataset with the following:-
 ../software/annovar/annotate_variation.pl -filter -dbtype 1000g2015aug_all -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
+```{r echo=FALSE}
+system("../software/annovar/annotate_variation.pl -filter -dbtype 1000g2015aug_all -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/")
+```
+
+
 As before, `..._dropped` and `...filtered` files are produce. Again the `.._dropped` file contains variants that were found in the database. However, rather than printing and ID for the variant, it prints the minor allele frequency that is observed for that variant.
 
 ```{}
-head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_10_dropped
+head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_ALL.sites.2015_08_dropped
 ```
 
 ```{r echo=FALSE,comment=NA}
-cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_EUR.sites.2014_10_dropped",intern=TRUE),sep="\n")
+cat(system("head HCC1143_vs_HCC1143_BL.flagged.muts.avinput.hg19_ALL.sites.2015_08_dropped",intern=TRUE),sep="\n")
 ```
 
-We can also provide a minor allele frequency (maf) threshold. This will mean that only variants with a maf greater than the threshold will be printed to the `..._dropped` file.
+The commands above annotated against variants derived from *all** indivduals in the study. If we have individuals of a different ethnicity, we probably want to use a more-specific cohort. In this case, we annotate against frequencies observed in *european* individuals.
 
 ```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2015aug_all -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -maf 0.05
-```
-
-The commands above annotated against variants derived from european indivduals. If we have individuals of a different ethnicity, we probably want to use a different cohort. In this case, we annotate against frequencies observed in european individuals.
-
-```{}
-../software/annovar/annotate_variation.pl -filter -dbtype 1000g2014oct_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
+../software/annovar/annotate_variation.pl -filter -dbtype 1000g2015aug_eur -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
 
 ## Healthy or disease individuals?
@@ -277,15 +289,17 @@ How you choose to interpret the filtering results depends on whether you are int
 
 Both dbSNP and 1000 genomes report frequencies amongst healthy individuals. The "complete genomics" (`cg69`) set also provides variant frequencies for 69 healthy subjects (including 46 unrelated subjects). Particularly useful for those with exome data is the ESP (Exome Sequencing Project) which aims to identify variants in exonic regions from over 6000 individuals; including however some subjects with disease. 
 
-```{}
-../software/annovar/annotate_variation.pl -filter -dbtype clinvar_20160302 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
-```
 
 `annovar` can also annotate against variants that are relevant to diseases such as cancer. For example, there is the ***COSMIC*** (Catalogue of Somatic Mutations in Cancer).
 
 ```{}
 ../software/annovar/annotate_variation.pl -filter -dbtype cosmic70 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/
 ```
+
+```{r echo=FALSE}
+system("../software/annovar/annotate_variation.pl -filter -dbtype cosmic70 -buildver hg19 HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/")
+```
+
 
 Again, the variants found in the database are printed in the `_dropped` file along with details of the mutation in **COSMIC** that they match.
 
@@ -297,25 +311,35 @@ This is slightly contrary to the 1000 genomes and dbSNP filtering we did previou
 
 ### Predicting consequence
 
-`annovar` also has a series of filter that can help us to [predict the consequence](http://annovar.openbioinformatics.org/en/latest/user-guide/filter/#ljb42-dbnsfp-non-synonymous-variants-annotation) of a particular mutation. 
+`annovar` also has a wide array of filters that can help us to [predict the consequence](http://annovar.openbioinformatics.org/en/latest/user-guide/filter/#ljb42-dbnsfp-non-synonymous-variants-annotation) of a particular mutation. These include predictions from methods such as [Sifting Intolerant From Tolerant / SIFT](http://sift.jcvi.org/), [Polyphen](http://genetics.bwh.harvard.edu/pph/) , [MutationTaster](http://mutationtaster.org/) and [FATHMM](http://fathmm.biocompute.org.uk/). 
 
-```{}
+The keyword `dbsnfp30a` will annotate against all `annovar`s collection of prediction databases in one go. However, for the purposes of the practical we will not be running this as it takes a long time.
 
-```
+Each prediction method can however be run separately. If a particular variant is found in the database a score will be returned along with some prediction of affect on protein function. A summary of the output of some of these methods is shown below. Details of others are on the annovar website.
 
 
+Method  | Keyword | Prediction
+------------- | ------------ | -----
+SIFT  | ljb23_sift | D: Deleterious (sift <= 0.05); T: tolerated (sift >0.05)
+MutationTaster  | ljb23_mt | A (disease causing automatic); D (disease causing); N (polymorphism); P (polymorphism automatic)
+FatHMM | ljb23_fathmm | D: Deleterious; T: Tolerated
 
 ## Combining multiple annotations and filters
 
 Up to this point, we have amassed quite a collection of tables of our set of variants annotated / filtered against various databases. A particularly appealing feature of `annovar` is that we can define protocols to combine multiple filters and collect the results in the same table. 
 
-The `-protocol` argument is used to list what types of annotation / filtering you want to be applied. With the `-operation` argument we have to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments.
+The `-protocol` argument is used to list what types of annotation / filtering you want to be applied using the same keywrods as previously. The `-operation` argument is used to specify whether each annotation is a gene (`g`), region (`r`) or filter (`f`) -based annotation. You need to take care to provide the same number of names in both the `-protocol` and `-operation` arguments. When you run the following command you should see that each filter is applied in turn.
 
 ```{}
-../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out HCC1143_vs_HCC1143_BL.flagged.muts.annovar -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,1000g2015aug_all,esp6500si_all,clinvar_20160302,cosmic70,nci60,ljb23_sift,ljb23_mt,ljb23_ma -operation g,r,r,r,r,f,f,f,f,f,f,f,f,f -nastring NA -csvout
+../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out HCC1143_vs_HCC1143_BL.flagged.muts.annovar -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,1000g2015aug_all,esp6500si_all,clinvar_20160302,cosmic70,nci60,ljb23_sift,ljb23_mt,ljb23_fathmm -operation g,r,r,r,r,f,f,f,f,f,f,f,f,f -nastring NA -csvout
 ```
 
-The file `myanno.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
+```{r table_annovar, echo=FALSE}
+system("../software/annovar/table_annovar.pl HCC1143_vs_HCC1143_BL.flagged.muts.avinput ../software/annovar/humandb/ -buildver hg19 -out HCC1143_vs_HCC1143_BL.flagged.muts.annovar -remove -protocol refGene,cytoBand,gwasCatalog,genomicSuperDups,dgvMerged,snp129,1000g2015aug_all,esp6500si_all,clinvar_20160302,cosmic70,nci60,ljb23_sift,ljb23_mt,ljb23_fathmm -operation g,r,r,r,r,f,f,f,f,f,f,f,f,f -nastring NA -csvout")
+```
+
+
+The file `HCC1143_vs_HCC1143_BL.flagged.muts.annovar.hg19_multianno.csv` is created. By specifying the `-remove` argument in the command, any tables that are created as part of the process are removed. This `.csv` file can now be viewed in Excel, or LibreOffice in our case (right-click on the file)
 
 Having opened this file into a spreadsheet program we can of course filter and sort the data as we see fit. However, due to the sheer number of columns we have generated this may prove a bit unwieldy. Therefore we are going to introduce an R package that will make the interrogation and comprehension of such a table more intuitive.
 
@@ -329,9 +353,7 @@ Having opened this file into a spreadsheet program we can of course filter and s
 
 The process of analysing a dataset is rarely a linear one, and will generate scores of intermediate plots and tables along the way that don't make their way to a final publication. Packages such as `dplyr` and `ggplot2` (for plotting) provide an interface whereby the effort to produce meaningful summaries and graphics of our data is minimised. This allows us to worry more about the interpretation and what questions we should ask, rather than writing code.
 
-
-
-
+In the context of filtering variants this is useful, as we may have to re-visit our criteria many times before settling on a set of rules.
 
 The [cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) is highly recommended and summarises all the functions within the package. We won't have time to cover everything here today.
 
@@ -370,13 +392,14 @@ anno$Func.refGene
 However, the syntax to select multiple columns is a lot more concise. Mutiple columns can be selected by separating their names with a comma
 
 Compare:- 
+
 ```{r}
 select(anno, Func.refGene,ExonicFunc.refGene)
 ```
 
 to
 
-```{r}
+```{r eval=FALSE}
 anno[,c("Func.refGene","ExonicFunc.refGene")]
 ```
 
@@ -417,7 +440,7 @@ select(anno, contains("1000g"))
 *******
 Exercise
 
-- Select the columns `Func.refGene` to `AAChange.refGene` 
+- Display the columns `Func.refGene` to `AAChange.refGene` 
     + you could try the convenience functions `contains` `ends_with` to do this, or using the `:` notation
 - Now remove the column `GeneDetail.refGene`
 - Append the chromosome start and end position columns
@@ -431,25 +454,6 @@ select(anno, Chr:End, contains("refGene"),-GeneDetail.refGene)
 We should note at this point, that we have not actually changed the data frame at any point; just created different views of the data. 
 
 ```{r}
-anno
-```
-
-
-### `mutate`
-
-The `mutate` operation allows us to compute and append one or more new columns to a data frame. We can specify a new column name, or overwrite an existing one. As above, we do not change the data frame so need to create a new variable if we want the changes to persist. 
-
-For example, we might want to add the *"chr"* prefix to all our chromosome names. In order to perform this operation we need to specify a function that will take a vector as an input and return as vector of the same length as an output. In other words, a function that will transform each item in a vector and return a vector of transformed values.
-
-If you haven't seen the `paste` function before, it is used to join character vectors together with the option to separate by a fixed character. The default separater is a single space `" "`. However we don't want any separater in this case so specify the empty string `""`. Alternatively the convenient function `paste0` can be used.
-
-```{r}
-mutate(anno, Chr = paste("Chr", Chr,sep=""))
-mutate(anno, Chr = paste0("Chr", Chr))
-```
-
-```{r}
-anno <- mutate(anno, Chr =paste0("Chr", Chr))
 anno
 ```
 
@@ -471,12 +475,19 @@ Selecting *exonic* variants
 filter(anno, Func.refGene == "exonic")
 ```
 
-Multiple conditions can be separated by a `,`. This is the same as using `&` in base R.
+Multiple conditions can be separated by a `,`. This is the same as using `&` in base R to combine various tests.
 
 "*Exonic variants on chromosome 1 that are no synonymous or unknown*"
 ```{r}
 filter(anno, Func.refGene == "exonic", Chr == 1, ExonicFunc.refGene != "synonymous SNV", ExonicFunc.refGene != "unknown")
 ```
+
+Variants found in breast cancer according to COSMIC
+
+```{r}
+filter(anno, grepl("breast",cosmic76))
+```
+
 
 Variants that are found in dbSNP
 ```{r}
@@ -500,44 +511,45 @@ filter(anno, is.na(X1000g2015aug_all) | X1000g2015aug_all < 0.05)
 *******
 Exercise
 
-- Find all variants that are in TP53 and exonic
-- Find which variants are present COSMIC database
 - Find which variants are not in segmental duplications
+- Find all variants that are in TP53 and exonic
+- Find variants with greater than 0.1 frequency in the Exome Sequencing Project
+    + column `esp6500si_all`
 
 *******
 
 ## Combining commands with "pipes"
 
-A slighty annoyance with theexercise above is that once we've filtered for COSMIC variants we don't actually see the COSMIC column appearing in the output:-
+A slighty annoyance with the exercise above is that once we've filtered for low frequency esp variants, we don't actually see the `esp6500si_all` column appearing in the output:-
 
 ```{r}
-filter(anno, !is.na(cosmic70))
+filter(anno, esp6500si_all > 0.1)
 ```
 
 Given what we have done so far, it would seem natural to follow this `filter` statement with a `select` to view the columns we are interested in
 
 It is quite common to nest commands in R into a single line
 
-```{r}
-anno <- tbl_df(read.csv("myanno.hg19_multianno.csv"))
+```{r eval=FALSE}
+anno <- tbl_df(read.csv("HCC1143_vs_HCC1143_BL.flagged.muts.annovar.hg19_multianno.csv"))
 ```
 
 which we read as 
 
-> apply the function `tbl_df` to the result of reading the file myanno.hg19_multianno.csv
+> apply the function `tbl_df` to the result of reading the file `HCC1143_vs_HCC1143_BL.flagged.muts.annovar.hg19_multianno.csv`
 
 The following line of R code is perfectly valid and does exactly what we want. However, reading the code back to ourselves is a bit clunky.
 
 ```{r}
-select(filter(anno, !is.na(cosmic70)), Chr:Alt, cosmic70)
+select(filter(anno, esp6500si_all > 0.1), Chr:Alt, esp6500si_all)
 ```
 
-> select from the result of filter COSMIC variants, the columns Chr to Alt and cosmic70
+> select from variants with more than 0.1 frequency in the exome sequencing project, the columns Chr to Alt and esp6500si_all
 
 or we can split over multiple lines
 ```{r}
-select(filter(anno, !is.na(cosmic70)),
-       Chr:Alt, cosmic70)
+select(filter(anno, esp6500si_all > 0.1),
+       Chr:Alt, esp6500si_all)
 ```
 
 
@@ -554,13 +566,26 @@ We always have to work out what the first statement was, and work forwards from 
 The code from before can be rewritten as follows, making it easier to see the order in which the operations were performed.
 
 ```{r}
-filter(anno, !is.na(cosmic70)) %>% 
+filter(anno, esp6500si_all > 0.1) %>% 
   select(Chr:Alt, cosmic70)
 ```
 
 
 *******
+*******
+*******
+
 Exercise
+
+- Find which variants are present in the GWAS catalog
+- Use `select` to print the chromsome, start, end, Gene name and 1000 genomes frequency and GWAS catalogue details for these variants
+- Use a "pipe" command to write your answer
+
+```{r echo=FALSE}
+filter(anno, !is.na(gwasCatalog)) %>% 
+  select(Chr:End, Gene.refGene, X1000g2015aug_all,gwasCatalog)
+```
+
 
 - Explain in words what the following chain of commands is doing
 
@@ -572,88 +597,97 @@ filter(anno, Func.refGene=="exonic") %>%
   select(Chr:ExonicFunc.refGene,-GeneDetail.refGene,-Func.refGene,X1000g2015aug_all)
 ```
 
-
 *******
-Exercise
-
-- Find which variants are present in the GWAS catalog
-- Print the chromsome, start, end, Gene name and 1000 genomes frequency and GWAS catalogue details for these variants
-- Use a "pipe" command to write your answer
-
-```{r}
-filter(anno, !is.na(gwasCatalog)) %>% 
-  select(Chr:End, Gene.refGene, gwasCatalog)
-```
-
+*******
 *******
 
-### arrange
 
-The `arrange` function can be used to order rows. For example ordering according to 1000 genomes frequency
+The `arrange` function can be used to order rows. For example ordering according to 1000 genomes frequency after the series of commands above
+
 
 ```{r}
-arrange(anno, X1000g2015aug_all)
+filter(anno, Func.refGene=="exonic") %>% 
+  filter(!is.na(genomicSuperDups)) %>% 
+  filter(is.na(snp129)) %>% 
+  filter(X1000g2015aug_all < 0.05 | is.na(X1000g2015aug_all)) %>% 
+  select(Chr:ExonicFunc.refGene,-GeneDetail.refGene,-Func.refGene,X1000g2015aug_all) %>% 
+  arrange(X1000g2015aug_all)
 ```
 
-However, we can't actually see the column, so using a `select` statement afterwards seems a good idea
+The useful `desc` function can be used to reverse the ordering from highest to lowest
 
 ```{r}
-  arrange(anno, X1000g2015aug_all) %>% 
-  select(Chr:End, X1000g2015aug_all)
+filter(anno, Func.refGene=="exonic") %>% 
+  filter(!is.na(genomicSuperDups)) %>% 
+  filter(is.na(snp129)) %>% 
+  filter(X1000g2015aug_all < 0.05 | is.na(X1000g2015aug_all)) %>% 
+  select(Chr:ExonicFunc.refGene,-GeneDetail.refGene,-Func.refGene,X1000g2015aug_all) %>% 
+  arrange(desc(X1000g2015aug_all))
 ```
 
-We can use the convenient function `desc` to switch to descending order
+If we wish we can write the table we have just created to a `.csv` file
 
 ```{r}
-  arrange(anno, desc(X1000g2015aug_all)) %>% 
-  select(Chr:End, X1000g2015aug_all)
+filter(anno, Func.refGene=="exonic") %>% 
+  filter(!is.na(genomicSuperDups)) %>% 
+  filter(is.na(snp129)) %>% 
+  filter(X1000g2015aug_all < 0.05 | is.na(X1000g2015aug_all)) %>% 
+  select(Chr:ExonicFunc.refGene,-GeneDetail.refGene,-Func.refGene,X1000g2015aug_all) %>% 
+  arrange(desc(X1000g2015aug_all)) %>% 
+  write.csv("filtered-variants.csv")
 ```
 
 
-## Joining tables
+## Adding extra information to the table
 
-We might also want to incorporate quality information from the vcf file into the results. In many real life situations, data are spread across multiple tables or spreadsheets. Usually this occurs because different types of information about a subject are collected from different sources. It may be desirable for some analyses to combine data from two or more tables into a single data frame based on a common column, for example, an attribute that uniquely identifies the subject.
+The `mutate` operation allows us to compute and append one or more new columns to a data frame. We can specify a new column name, or overwrite an existing one. As above, we do not change the data frame so need to create a new variable if we want the changes to persist.
 
-`dplyr` provides a set of join functions for combining two data frames based on matches within specified columns. These operations are very similar to carrying out join operations between tables in a relational database using SQL.
+For example, we might want to add the "chr" prefix to all our chromosome names. In order to perform this operation we need to specify a function that will take a vector as an input and return as vector of the same length as an output. In other words, a function that will transform each item in a vector and return a vector of transformed values.
 
+If you haven't seen the paste function before, it is used to join character vectors together with the option to separate by a fixed character. The default separater is a single space " ". However we don't want any separater in this case so specify the empty string "". Alternatively the convenient function paste0 can be used.
 
-![](images/dplyr_left_join.png)
+```{r}
+mutate(anno, Chr = paste("Chr", Chr,sep=""))
+mutate(anno, Chr = paste0("Chr", Chr))
 
-To illustrate join operations we'll consider the most common type, a "left join". In the schematic below the two data frames share a common column, V1. We can combine the two data frames into a single data frame by matching rows in the first data frame with those in the second data frame that share the same value of V1.
+```
 
-`left_join` returns all rows from the first data frame regardless of whether there is a match in the second data frame. Rows with no match are included in the resulting data frame but have NA values in the additional columns coming from the second data frame. 
+```{r}
+anno <- mutate(anno, Chr = paste("Chr", Chr,sep=""))
+```
 
-To put this into practice, we are going to join the annotation data frame we have just created with extra information available in the `.vcf` file
-
-We can first import the `.vcf` file as we saw yesterday.
+To aid us selecting variants for follow-up, we need to know which ones have passed filters. We can first import the `.vcf` file as we saw yesterday.
 
 ```{r}
 library(VariantAnnotation)
 vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
 ```
 
-We can create a new data frame comprised of the ranges information for the variants and the `INFO` matrix. Using the the new `tbl_df` function
+Recall that the `FILTER` flag is stored in the metadata of the variant ranges object `rowRanges`. We can add this to our existing annotation using `mutate`.
 
 ```{r}
-extra.info <- tbl_df(data.frame(rowRanges(vcf),info(vcf)))
-extra.info
+anno.extra <- mutate(anno, FILTER = mcols(rowRanges(vcf))$FILTER)  
+anno.extra
 ```
 
-In order to join the two tables we need to have variables that are in common. In our case the combination of chromosome, start and end position should be unique. We have to rename these columns so they are the same as the equivalent columns in `anno`
+
+
+## Creating a filtering pipeline
+
+We now have all the `dplyr` operations in place to create a filtering pipeline. Firstly, probably want to use only those variants that passed the filters employed by caveman.
 
 ```{r}
-extra.info <- mutate(extra.info, Chr=seqnames) %>% 
-  mutate(Start=start) %>% 
-  mutate(End=end)
-extra.info 
+filter(anno.extra, FILTER=="PASS")
 ```
-
-We can now complete the join. The function should automatically detect which columns are in-common. If we want to be more explicit we can use the `by` argument.
 
 ```{r}
-anno.extra <- left_join(anno, extra.info)
-
+filter(anno.extra, FILTER=="PASS") %>% 
+  filter(is.na(genomicSuperDups)) %>% 
+  filter(is.na(X1000g2015aug_all) | X1000g2015aug_all < 0.05) %>% 
+  filter(Func.refGene, )
 ```
+
+
 
 # References
 
