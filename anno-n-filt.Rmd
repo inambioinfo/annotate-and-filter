@@ -12,16 +12,8 @@ Imagine that we've called a set of somatic variants from our paired tumour and n
 - Using `annovar` to create a human-readable and searchable table of annotation results
 - Recent advances in R ("`dplyr`") that allow us to filter and subset our data more efficiently
 - How we can prioritise our results, and write pipelines for doing so
-- Use `ggplot2` to visualise our filtering results
 
-The `.vcf` file we are going to be using is `HCC1143_vs_HCC1143_BL.flagged.muts.vcf`, which we can quickly inspect using `VariantAnnotation`
-
-```{r message=FALSE,echo=FALSE}
-library(VariantAnnotation)
-vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
-rowRanges(vcf)
-```
-
+The calls we are going to be using is `HCC1143_vs_HCC1143_BL.flagged.muts.vcf`, which should be in the `Day3` directory
 
 # Working Directory
 
@@ -359,8 +351,10 @@ The [cheatsheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangli
 
 For more information on `dplyr` see our one-day course [Data Manipulation and Visualisation using R](http://bioinformatics-core-shared-training.github.io/r-intermediate/)
 
-The first step is to load the `dplyr` library.
+The first step is to load the `dplyr` library. We will also need `VariantAnnotation` for this workflow.
+
 ```{r message=FALSE}
+library(VariantAnnotation)
 library(dplyr)
 ```
 
@@ -482,19 +476,26 @@ Multiple conditions can be separated by a `,`. This is the same as using `&` in 
 filter(anno, Func.refGene == "exonic", Chr == 1, ExonicFunc.refGene != "synonymous SNV", ExonicFunc.refGene != "unknown")
 ```
 
-Variants found in breast cancer according to COSMIC
+Partial matches can be performed using `grepl`. We often use `grep` to find the indices where a particular string is found amongst a vector. However, in order to do filtering `dplyr` requires a logical vector the same length as the number of rows. 
+
+```{r}
+grep("breast",anno$cosmic70)
+grepl("breast",anno$cosmic70)[1:10]
+```
+
 
 ```{r}
 filter(anno, grepl("breast",cosmic70))
 ```
 
+During annovar's filtering we get `NA` entries whenever a particular variant is not found in a database. To filter for these `NA` values we use the function `is.na`.
 
-Variants that are found in dbSNP
+e.g. Variants that are found in dbSNP
 ```{r}
 filter(anno, is.na(snp129))
 ```
 
-Variants that are found in GWAS
+Variants that are found in GWAS. Were we use a `!` to reverse the result of `is.na`; `TRUE` -> `FALSE` and `FALSE` -> `TRUE`
 
 ```{r}
 filter(anno, !is.na(gwasCatalog))
@@ -637,7 +638,6 @@ anno <- mutate(anno, Chr = paste("Chr", Chr,sep=""))
 To aid us selecting variants for follow-up, we need to know which ones have passed filters. We can first import the `.vcf` file as we saw yesterday.
 
 ```{r}
-library(VariantAnnotation)
 vcf <- readVcf("HCC1143_vs_HCC1143_BL.flagged.muts.vcf","hg19")
 ```
 
@@ -650,13 +650,22 @@ anno.extra
 
 
 
-## Creating a filtering pipeline
+## Putting it together..
 
 We now have all the `dplyr` operations in place to create a filtering pipeline. Firstly, probably want to use only those variants that passed the filters employed by caveman.
 
 ```{r}
 filter(anno.extra, FILTER=="PASS")
 ```
+
+Now we select
+
+- Variants that pass caveman filters
+- Variants not in segmental duplications
+- Variants less than 0.05 frequency in 1000 genomes data
+- Variants less than 0.05 frequencing in Exome Sequencing Project data
+- Exonic variants
+- Variants that cause a change in amino acid
 
 ```{r}
 filter(anno.extra, FILTER=="PASS") %>% 
@@ -667,6 +676,7 @@ filter(anno.extra, FILTER=="PASS") %>%
   filter(ExonicFunc.refGene != "synonymous SNV")
 ```
 
+We can further reduce the set to those that SIFT considers to be deleterious
 
 ```{r}
 filter(anno.extra, FILTER=="PASS") %>% 
@@ -675,9 +685,11 @@ filter(anno.extra, FILTER=="PASS") %>%
   filter(is.na(esp6500si_all) | esp6500si_all < 0.05) %>% 
   filter(Func.refGene == "exonic") %>% 
   filter(ExonicFunc.refGene != "synonymous SNV") %>% 
-  filter(grepl("D", ljb23_sift))
-
+  filter(grepl("D", ljb23_sift)) %>% 
+  select(Chr:Alt, Gene.refGene,ExonicFunc.refGene,cosmic70,ljb23_sift) 
 ```
+
+Finally, write out to a `.csv` file
 
 ```{r}
 filter(anno.extra, FILTER=="PASS") %>% 
@@ -690,5 +702,5 @@ filter(anno.extra, FILTER=="PASS") %>%
   write.csv("HCC1143_vs_HCC1143_BL.flagged.muts.annovar.hg19_multianno.filtered.csv")
 ```
 
-
+Depending on what your particular study is interested in, you may wish to omit or revise some of these steps.
 
